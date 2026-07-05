@@ -16,7 +16,30 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: 8.5
-        
+
+      - name: Organize Files into Android Structure
+        run: |
+          echo "Arranging files into correct Android layout..."
+          mkdir -p app/src/main/java/com/privateai/assistant
+          mkdir -p app/src/main/res
+          
+          # Move Java source files to package directory
+          [ -f ConfigActivity.java ] && mv ConfigActivity.java app/src/main/java/com/privateai/assistant/ || true
+          [ -f AssistantService.java ] && mv AssistantService.java app/src/main/java/com/privateai/assistant/ || true
+          [ -f BootReceiver.java ] && mv BootReceiver.java app/src/main/java/com/privateai/assistant/ || true
+          
+          # Move Manifest file
+          [ -f AndroidManifest.xml ] && mv AndroidManifest.xml app/src/main/ || true
+          
+          # Handle app-level build.gradle if named differently
+          if [ -f app/build.gradle ]; then
+            echo "app/build.gradle already exists"
+          elif [ -f build.gradle ] && [ ! -f settings.gradle ]; then
+            # If there's only one build.gradle uploaded directly
+            mkdir -p app
+            cp build.gradle app/build.gradle
+          fi
+
       - name: Build APK with Gradle 8.5
         run: gradle assembleDebug
         
