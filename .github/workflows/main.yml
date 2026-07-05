@@ -17,33 +17,108 @@ jobs:
         with:
           gradle-version: 8.5
 
-      - name: Organize Files into Android Structure
+      - name: Auto-Generate Clean Android Project Structure
         run: |
-          echo "Arranging files into correct Android layout..."
-          mkdir -p app/src/main/java/com/privateai/assistant
-          mkdir -p app/src/main/res
+          echo "Starting clean architecture generation..."
           
-          # Move Java source files to package directory
-          [ -f ConfigActivity.java ] && mv ConfigActivity.java app/src/main/java/com/privateai/assistant/ || true
-          [ -f AssistantService.java ] && mv AssistantService.java app/src/main/java/com/privateai/assistant/ || true
-          [ -f BootReceiver.java ] && mv BootReceiver.java app/src/main/java/com/privateai/assistant/ || true
+          # 1. Temporarily backup your core Java and Manifest files
+          mkdir -p /tmp/backup_source
+          [ -f ConfigActivity.java ] && cp ConfigActivity.java /tmp/backup_source/
+          [ -f AssistantService.java ] && cp AssistantService.java /tmp/backup_source/
+          [ -f BootReceiver.java ] && cp BootReceiver.java /tmp/backup_source/
+          [ -f AndroidManifest.xml ] && cp AndroidManifest.xml /tmp/backup_source/
           
-          # Move Manifest file
-          [ -f AndroidManifest.xml ] && mv AndroidManifest.xml app/src/main/ || true
+          # 2. Clear out the directory mess to avoid configuration clashes
+          rm -rf *
           
-          # Handle app-level build.gradle if named differently
-          if [ -f app/build.gradle ]; then
-            echo "app/build.gradle already exists"
-          elif [ -f build.gradle ] && [ ! -f settings.gradle ]; then
-            # If there's only one build.gradle uploaded directly
-            mkdir -p app
-            cp build.gradle app/build.gradle
-          fi
+          # 3. Create fresh standard multi-module configuration files
+          cat << 'EOF' > settings.gradle
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "PrivateAIAssistant"
+          include ':app'
+          EOF
 
-      - name: Build APK with Gradle 8.5
-        run: gradle assembleDebug
+          cat << 'EOF' > build.gradle
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:8.2.2'
+              }
+          }
+          plugins {
+              id 'com.android.application' version '8.2.2' apply false
+          }
+          EOF
+
+          # 4. Generate standard application module folders
+          mkdir -p app/src/main/java/com/privateai/assistant
+          mkdir -p app/src/main/res/values
+          
+          # 5. Create standard app build.gradle with correct dependencies
+          cat << 'EOF' > app/build.gradle
+          plugins {
+              id 'com.android.application'
+          }
+          android {
+              namespace 'com.privateai.assistant'
+              compileSdk 34
+              defaultConfig {
+                  applicationId "com.privateai.assistant"
+                  minSdk 26
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+              implementation 'com.google.android.material:material:1.11.0'
+              implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+          }
+          EOF
+
+          # 6. Put a placeholder strings.xml to satisfy any resource constraints
+          cat << 'EOF' > app/src/main/res/values/strings.xml
+          <resources>
+              <string name="app_name">Private AI Assistant</string>
+          </resources>
+          EOF
+
+          # 7. Restore your source files into their correct structural locations
+          [ -f /tmp/backup_source/ConfigActivity.java ] && cp /tmp/backup_source/ConfigActivity.java app/src/main/java/com/privateai/assistant/
+          [ -f /tmp/backup_source/AssistantService.java ] && cp /tmp/backup_source/AssistantService.java app/src/main/java/com/privateai/assistant/
+          [ -f /tmp/backup_source/BootReceiver.java ] && cp /tmp/backup_source/BootReceiver.java app/src/main/java/com/privateai/assistant/
+          [ -f /tmp/backup_source/AndroidManifest.xml ] && cp /tmp/backup_source/AndroidManifest.xml app/src/main/
+
+      - name: Compile and Generate Android APK
+        run: gradle :app:assembleDebug
         
-      - name: Upload APK
+      - name: Upload APK Package Destination
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
