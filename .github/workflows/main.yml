@@ -31,7 +31,13 @@ jobs:
           # 2. Clear out the directory mess to avoid configuration clashes
           rm -rf *
           
-          # 3. Create fresh standard multi-module configuration files
+          # 3. Create gradle.properties and enable AndroidX
+          cat << 'EOF' > gradle.properties
+          android.useAndroidX=true
+          android.enableJetifier=true
+          EOF
+          
+          # 4. Create fresh standard multi-module configuration files
           cat << 'EOF' > settings.gradle
           pluginManagement {
               repositories {
@@ -66,11 +72,11 @@ jobs:
           }
           EOF
 
-          # 4. Generate standard application module folders
+          # 5. Generate standard application module folders
           mkdir -p app/src/main/java/com/privateai/assistant
           mkdir -p app/src/main/res/values
           
-          # 5. Create standard app build.gradle with correct dependencies
+          # 6. Create standard app build.gradle with correct dependencies
           cat << 'EOF' > app/build.gradle
           plugins {
               id 'com.android.application'
@@ -102,14 +108,14 @@ jobs:
           }
           EOF
 
-          # 6. Put a placeholder strings.xml to satisfy any resource constraints
+          # 7. Put a placeholder strings.xml to satisfy any resource constraints
           cat << 'EOF' > app/src/main/res/values/strings.xml
           <resources>
               <string name="app_name">Private AI Assistant</string>
           </resources>
           EOF
 
-          # 7. Restore your source files into their correct structural locations
+          # 8. Restore your source files into their correct structural locations
           [ -f /tmp/backup_source/ConfigActivity.java ] && cp /tmp/backup_source/ConfigActivity.java app/src/main/java/com/privateai/assistant/
           [ -f /tmp/backup_source/AssistantService.java ] && cp /tmp/backup_source/AssistantService.java app/src/main/java/com/privateai/assistant/
           [ -f /tmp/backup_source/BootReceiver.java ] && cp /tmp/backup_source/BootReceiver.java app/src/main/java/com/privateai/assistant/
