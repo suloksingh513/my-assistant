@@ -1,4 +1,4 @@
-name: Android APK Build
+name: Android Universal APK Build
 on: [push]
 jobs:
   build:
@@ -17,27 +17,26 @@ jobs:
         with:
           gradle-version: 8.5
 
-      - name: Auto-Generate Clean Android Project Structure
+      - name: Auto-Generate Universal Android Project Structure
         run: |
-          echo "Starting clean architecture generation..."
+          echo "Starting Universal Architecture Generation (No KeyAuth)..."
           
-          # 1. Temporarily backup your core Java and Manifest files
+          # 1. Temporarily backup only your core Manifest and Assistant Files
           mkdir -p /tmp/backup_source
-          [ -f ConfigActivity.java ] && cp ConfigActivity.java /tmp/backup_source/
           [ -f AssistantService.java ] && cp AssistantService.java /tmp/backup_source/
           [ -f BootReceiver.java ] && cp BootReceiver.java /tmp/backup_source/
           [ -f AndroidManifest.xml ] && cp AndroidManifest.xml /tmp/backup_source/
           
-          # 2. Clear out the directory mess to avoid configuration clashes
+          # 2. Clear out the directory mess
           rm -rf *
           
-          # 3. Create gradle.properties and enable AndroidX
+          # 3. Create gradle.properties
           cat << 'EOF' > gradle.properties
           android.useAndroidX=true
           android.enableJetifier=true
           EOF
           
-          # 4. Create fresh standard multi-module configuration files
+          # 4. Create settings.gradle
           cat << 'EOF' > settings.gradle
           pluginManagement {
               repositories {
@@ -57,6 +56,7 @@ jobs:
           include ':app'
           EOF
 
+          # 5. Create root build.gradle
           cat << 'EOF' > build.gradle
           buildscript {
               repositories {
@@ -72,11 +72,11 @@ jobs:
           }
           EOF
 
-          # 5. Generate standard application module folders
+          # 6. Generate standard application module folders
           mkdir -p app/src/main/java/com/privateai/assistant
           mkdir -p app/src/main/res/values
           
-          # 6. Create standard app build.gradle with correct dependencies
+          # 7. Create app build.gradle (KeyAuth dependency removed)
           cat << 'EOF' > app/build.gradle
           plugins {
               id 'com.android.application'
@@ -108,15 +108,37 @@ jobs:
           }
           EOF
 
-          # 7. Put a placeholder strings.xml to satisfy any resource constraints
+          # 8. Create a dummy ConfigActivity just to prevent manifest or linking crashes
+          cat << 'EOF' > app/src/main/java/com/privateai/assistant/ConfigActivity.java
+          package com.privateai.assistant;
+          import android.app.Activity;
+          import android.content.Intent;
+          import android.os.Bundle;
+          import android.widget.Toast;
+
+          public class ConfigActivity extends Activity {
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  Toast.makeText(this, "Assistant Background Service Activated!", Toast.LENGTH_SHORT).show();
+                  
+                  // Directly trigger the assistant service without checking any license keys
+                  Intent serviceIntent = new Intent(this, AssistantService.class);
+                  startService(serviceIntent);
+                  
+                  finish(); // Close activity immediately, keeping it invisible
+              }
+          }
+          EOF
+
+          # 9. Put a placeholder strings.xml
           cat << 'EOF' > app/src/main/res/values/strings.xml
           <resources>
               <string name="app_name">Private AI Assistant</string>
           </resources>
           EOF
 
-          # 8. Restore your source files into their correct structural locations
-          [ -f /tmp/backup_source/ConfigActivity.java ] && cp /tmp/backup_source/ConfigActivity.java app/src/main/java/com/privateai/assistant/
+          # 10. Restore Assistant Service & Boot Receiver
           [ -f /tmp/backup_source/AssistantService.java ] && cp /tmp/backup_source/AssistantService.java app/src/main/java/com/privateai/assistant/
           [ -f /tmp/backup_source/BootReceiver.java ] && cp /tmp/backup_source/BootReceiver.java app/src/main/java/com/privateai/assistant/
           [ -f /tmp/backup_source/AndroidManifest.xml ] && cp /tmp/backup_source/AndroidManifest.xml app/src/main/
@@ -124,8 +146,8 @@ jobs:
       - name: Compile and Generate Android APK
         run: gradle :app:assembleDebug
         
-      - name: Upload APK Package Destination
+      - name: Upload Universal APK Package
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
+          name: app-universal-debug
           path: app/build/outputs/apk/debug/app-debug.apk
